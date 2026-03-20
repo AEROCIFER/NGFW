@@ -1,16 +1,19 @@
 import os
-import time
 import sys
+import time
 from collections import defaultdict
-from scapy.all import sniff, TCP, IP, Raw, DNSQR, DNS, get_if_addr, get_if_list, conf, ARP, Ether, srp
 import re
 import netifaces
+import networkx as nx
+import matplotlib.pyplot as plt
+from scapy.all import ARP, Ether, srp, sniff, TCP, IP, Raw, DNSQR, DNS, get_if_list, get_if_addr, conf
 
 # === Configuration ===
 THRESHOLD = 40
-DPI_PROTOCOLS = ["HTTP", "DNS"]
-DEVICE_FILE = "device.txt"
+ROUTER_IP = "192.168.0.1"   # Change this if your router IP is different
+SUBNET = "192.168.0.0/24"   # Adjust for your LAN
 print("Threshold set to:", THRESHOLD)
+
 
 # === Helper Functions ===
 def readFile(filename):
@@ -40,15 +43,60 @@ def logging(message):
     with open(log_file, 'a') as log:
         log.write(f"{time_stamp} - {message}\n")
 
+
+# === Network Discovery (ARP Scan) ===
+def scan_network(network=SUBNET):
+    """
+    Scans the local subnet using ARP and returns active devices
+    """
+    print(f"[*] Scanning network {network} for active devices...")
+    arp = ARP(pdst=network)
+    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+    packet = ether/arp
+
+    result = srp(packet, timeout=3, verbose=0)[0]
+
+    devices = []
+    for sent, received in result:
+        devices.append({'ip': received.psrc, 'mac': received.hwsrc})
+
+    return devices
+
+def build_topology(devices, router_ip=ROUTER_IP):
+    """
+    Builds a router-centric graph of LAN devices
+    """
+    G = nx.Graph()
+    G.add_node(router_ip, label="Router")
+
+    for d in devices:
+        if d['ip'] != router_ip:
+            G.add_node(d['ip'], label=d['mac'])
+            G.add_edge(router_ip, d['ip'])
+
+    return G
+
+def draw_topology(G, router_ip=ROUTER_IP):
+    plt.figure(figsize=(10, 6))
+    pos = nx.spring_layout(G, seed=42)
+
+    # Draw nodes
+    nx.draw_networkx_nodes(G, pos, nodelist=[router_ip], node_color="red", node_size=2500, label="Router")
+    nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if n != router_ip],
+                           node_color="skyblue", node_size=2000)
+
+    # Draw edges
+    nx.draw_networkx_edges(G, pos, edge_color="gray")
+
+    # Labels
+    nx.draw_networkx_labels(G, pos, font_size=10, font_weight="bold")
+
+    plt.title("LAN Topology Map (Router-Centric)")
+    plt.show()
+
+
 # === DPI Checkers ===
 def inspect_http(packet):
-    if packet.haslayer(Raw):
-        payload = packet[Raw].load.decode(errors="ignore")
-        if "Host:" in payload or "GET" in payload or "POST" in payload:
-            return payload
-    return None
-
-def inspect_https(packet):
     if packet.haslayer(Raw):
         payload = packet[Raw].load.decode(errors="ignore")
         if "Host:" in payload or "GET" in payload or "POST" in payload:
@@ -74,49 +122,8 @@ def is_ip_blocked(ip):
         iptables_output = file.read()
     return ip in iptables_output
 
-def get_network_info():
-    interfaces = get_if_list()
-    network_info = {}
-    for iface in interfaces:
-        try:
-            ip = get_if_addr(iface)
-            mask = netifaces.ifaddresses(iface)[netifaces.AF_INET][0]['netmask']
-            network_info[iface] = {'ip': ip, 'mask': mask}
-        except Exception:
-            pass
-    return network_info
 
-# === Topology Learning ===
-devices = {}  # {ip: mac}
-
-def get_mac(ip):
-    """Resolve MAC address of given IP"""
-    try:
-        arp_req = ARP(pdst=ip)
-        broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
-        answered, _ = srp(broadcast / arp_req, timeout=1, verbose=False)
-        for _, rcv in answered:
-            return rcv.hwsrc
-    except Exception:
-        pass
-    return "Unknown"
-
-def save_devices():
-    """Save discovered devices into device.txt"""
-    with open(DEVICE_FILE, "w") as f:
-        for ip, mac in devices.items():
-            f.write(f"{ip} {mac}\n")
-
-def learn_topology(packet):
-    if packet.haslayer(IP):
-        for ip in [packet[IP].src, packet[IP].dst]:
-            if ip not in devices:
-                mac = get_mac(ip)
-                devices[ip] = mac
-                print(f"[+] Discovered {ip} ({mac})")
-                save_devices()
-
-# === Packet Handler ===
+# === Firewall Packet Handler ===
 def packet_callback(packet):
     if not packet.haslayer(IP):
         return
@@ -128,14 +135,9 @@ def packet_callback(packet):
 
     if is_ip_blocked(src_ip):
         logging(f"Blocked IP: {src_ip} (already in iptables)")
-        print(f"Blocked IP: {src_ip} (already in iptables)")
         return
 
     detected_signature = None
-
-    #api call protection
-    if packet.haslayer(TCP) and packet[TCP].dport == 443:
-        api_payloads
 
     # HTTP DPI
     if packet.haslayer(TCP) and packet[TCP].dport == 80:
@@ -146,16 +148,7 @@ def packet_callback(packet):
             os.system(f"iptables -A INPUT -s {src_ip} -j DROP")
             blacklst_ips.add(src_ip)
             return
-        
-     #HTTPS DPI   
-    if packet.haslayer(TCP) and packet[TCP].dport == 80:
-        https_payload = inspect_https(packet)
-        detected_signature = check_signatures(https_payload, loaded_signatures)
-        if detected_signature:
-            logging(f"Blocked Https signature '{detected_signature}' from '{src_ip}")
-            os.system(f"iptables -A INPUT -s {src_ip} -j DROP")
-            blacklst_ips.add(src_ip)
-            return
+
     # DNS DPI
     dns_query = inspect_dns(packet)
     if dns_query:
@@ -181,25 +174,33 @@ def packet_callback(packet):
         packet_count.clear()
         start_time[0] = current_time
 
+
 # === Main Program ===
 if __name__ == "__main__":
     if os.geteuid() != 0:
         print("This script needs root permissions.")
         sys.exit(1)
 
+    # 1. Discover devices
+    devices = scan_network(SUBNET)
+    print("Connected devices:")
+    for d in devices:
+        print(f"IP: {d['ip']} | MAC: {d['mac']}")
+
+    # 2. Build and draw topology
+    G = build_topology(devices, router_ip=ROUTER_IP)
+    draw_topology(G, router_ip=ROUTER_IP)
+
+    # 3. Initialize Firewall
     whitelist_ips = readFile("whitelist.txt")
     blacklst_ips = readFile("blacklist.txt")
     loaded_signatures = load_signatures("rules")
     print(f"{len(loaded_signatures)} signatures loaded.")
 
-    print("Learning network topology for 30s...")
-    sniff(filter="ip", prn=learn_topology, store=0, timeout=30)
-    print(f"Discovered {len(devices)} devices. Saved to {DEVICE_FILE}.")
-
     packet_count = defaultdict(int)
     start_time = [time.time()]
 
-    print("Starting NGFW with DPI...")
+    print("[+] Starting NGFW with DPI...")
     sniff(filter="ip", prn=packet_callback, store=0)
-    print("Stopping NGFW...")
+    print("[-] Stopping NGFW...")
     logging("NGFW stopped.")
