@@ -37,7 +37,7 @@ DEFAULT_RULES_DIR = BASE_DIR / "data" / "signatures"
 @dataclass
 class NetworkConfig:
     """Packet capture and network settings."""
-    interfaces: list[str] = field(default_factory=lambda: ["eth0"])
+    interfaces: list[str] = field(default_factory=lambda: [])
     promiscuous: bool = True
     snap_length: int = 65535          # Max bytes captured per packet
     capture_filter: str = "ip"        # BPF filter

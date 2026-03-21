@@ -223,6 +223,40 @@ CREATE TABLE IF NOT EXISTS traffic_stats (
     protocol_breakdown TEXT DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_stats_time ON traffic_stats(timestamp);
+
+-- Network Interfaces
+CREATE TABLE IF NOT EXISTS interfaces (
+    id TEXT PRIMARY KEY,
+    name TEXT DEFAULT '',
+    interface_type TEXT DEFAULT 'Layer 3',
+    ip_assignment TEXT DEFAULT 'DHCP',
+    ip_address TEXT DEFAULT '',
+    gateway TEXT DEFAULT '',
+    zone_id TEXT,
+    logs_allowed INTEGER DEFAULT 1,
+    status TEXT DEFAULT 'UP',
+    speed TEXT DEFAULT '1000Mbps'
+);
+
+-- URL Drop Filters
+CREATE TABLE IF NOT EXISTS url_filters (
+    id TEXT PRIMARY KEY,
+    url TEXT UNIQUE NOT NULL,
+    created_at REAL NOT NULL
+);
+
+-- SP3 Analytics Logs
+CREATE TABLE IF NOT EXISTS sp3_logs (
+    id TEXT PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    src_ip TEXT DEFAULT '',
+    dst_ip TEXT DEFAULT '',
+    protocol TEXT DEFAULT '',
+    service TEXT DEFAULT '',
+    policy_action TEXT DEFAULT '',
+    details TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_sp3_time ON sp3_logs(timestamp);
 """
 
 
@@ -750,3 +784,86 @@ class Database:
                 row = await cursor.fetchone()
                 counts[table] = row[0] if row else 0
         return counts
+
+    # ───────────────────────────────────────────────────────────────────
+    # Interfaces
+    # ───────────────────────────────────────────────────────────────────
+    async def delete_interface(self, interface_id: str) -> None:
+        async with self._conn() as db:
+            await db.execute("DELETE FROM interfaces WHERE id = ?", (interface_id,))
+            await db.commit()
+
+    async def update_interface_status(self, interface_id: str, status: str) -> None:
+        async with self._conn() as db:
+            await db.execute("UPDATE interfaces SET status = ? WHERE id = ?", (status, interface_id,))
+            await db.commit()
+
+    async def get_all_interfaces(self) -> list[Any]:
+        async with self._conn() as db:
+            cursor = await db.execute("SELECT * FROM interfaces")
+            rows = await cursor.fetchall()
+            from aerocifer.db.models import NetworkInterface
+            return [NetworkInterface.from_dict(dict(r)) for r in rows]
+
+    async def insert_interface(self, iface: Any) -> None:
+        async with self._conn() as db:
+            d = iface.to_dict()
+            await db.execute(
+                """INSERT OR REPLACE INTO interfaces
+                   (id, name, interface_type, ip_assignment, ip_address, gateway,
+                    zone_id, logs_allowed, status, speed)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (d["id"], d["name"], d["interface_type"], d["ip_assignment"],
+                 d["ip_address"], d["gateway"], d["zone_id"],
+                 int(d["logs_allowed"]), d["status"], d["speed"]),
+            )
+            await db.commit()
+
+    # ───────────────────────────────────────────────────────────────────
+    # URL Filters
+    # ───────────────────────────────────────────────────────────────────
+    async def get_url_filters(self) -> list[str]:
+        async with self._conn() as db:
+            cursor = await db.execute("SELECT url FROM url_filters")
+            rows = await cursor.fetchall()
+            return [r[0] for r in rows]
+
+    async def insert_url_filter(self, url: str) -> None:
+        import time, uuid
+        uid = uuid.uuid4().hex[:12]
+        now = time.time()
+        async with self._conn() as db:
+            await db.execute(
+                "INSERT OR IGNORE INTO url_filters (id, url, created_at) VALUES (?, ?, ?)",
+                (uid, url, now)
+            )
+            await db.commit()
+
+    async def delete_url_filter(self, url: str) -> None:
+        async with self._conn() as db:
+            await db.execute("DELETE FROM url_filters WHERE url = ?", (url,))
+            await db.commit()
+
+    # ───────────────────────────────────────────────────────────────────
+    # SP3 Logger (High Throughput)
+    # ───────────────────────────────────────────────────────────────────
+    async def insert_sp3_log(self, log_record: Any) -> None:
+        async with self._conn() as db:
+            d = log_record.to_dict()
+            await db.execute(
+                """INSERT INTO sp3_logs
+                   (id, timestamp, src_ip, dst_ip, protocol, service, policy_action, details)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (d["id"], d["timestamp"], d["src_ip"], d["dst_ip"],
+                 d["protocol"], d["service"], d["policy_action"], d["details"])
+            )
+            await db.commit()
+
+    async def get_recent_sp3_logs(self, limit: int = 100) -> list[Any]:
+        async with self._conn() as db:
+            cursor = await db.execute(
+                "SELECT * FROM sp3_logs ORDER BY timestamp DESC LIMIT ?", (limit,)
+            )
+            rows = await cursor.fetchall()
+            from aerocifer.db.models import Sp3Log
+            return [Sp3Log.from_dict(dict(r)) for r in rows]

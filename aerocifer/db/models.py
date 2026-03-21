@@ -382,3 +382,68 @@ class TrainingSample:
     def from_dict(cls, data: dict[str, Any]) -> TrainingSample:
         return cls(**{k: v for k, v in data.items()
                       if k in cls.__dataclass_fields__})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Interface Model
+# ═══════════════════════════════════════════════════════════════════════════
+@dataclass
+class NetworkInterface:
+    id: str
+    name: str = ""
+    interface_type: str = "Layer 3"
+    ip_assignment: str = "DHCP"
+    ip_address: str = ""
+    gateway: str = ""
+    zone_id: Optional[str] = None
+    logs_allowed: bool = True
+    status: str = "UP"
+    speed: str = "1000Mbps"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> NetworkInterface:
+        return cls(**{k: v for k, v in data.items()
+                      if k in cls.__dataclass_fields__})
+
+# ═══════════════════════════════════════════════════════════════════════════
+# URL Filter Model
+# ═══════════════════════════════════════════════════════════════════════════
+@dataclass
+class UrlFilter:
+    url: str
+    id: str = field(default_factory=_gen_id)
+    created_at: float = field(default_factory=_now)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> UrlFilter:
+        return cls(**{k: v for k, v in data.items()
+                      if k in cls.__dataclass_fields__})
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SP3 Packet Log Model
+# ═══════════════════════════════════════════════════════════════════════════
+@dataclass
+class Sp3Log:
+    id: str = field(default_factory=_gen_id)
+    timestamp: float = field(default_factory=_now)
+    src_ip: str = ""
+    dst_ip: str = ""
+    protocol: str = ""
+    service: str = ""
+    policy_action: str = ""
+    details: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Sp3Log:
+        return cls(**{k: v for k, v in data.items()
+                      if k in cls.__dataclass_fields__})
+

@@ -13,7 +13,7 @@ import asyncio
 import logging
 
 from aerocifer.utils.logger import get_logger
-from aerocifer.api.routes import status, ai_config, security
+from aerocifer.api.routes import status, ai_config, security, network, logs
 
 log = get_logger("api")
 
@@ -41,6 +41,8 @@ def create_app(ngfw_instance) -> FastAPI:
     app.include_router(status.router, prefix="/api/v1/status", tags=["Status"])
     app.include_router(ai_config.router, prefix="/api/v1/ai", tags=["AI Configuration"])
     app.include_router(security.router, prefix="/api/v1/security", tags=["Security & Rules"])
+    app.include_router(network.router, prefix="/api/v1/network", tags=["Interfaces & Zones"])
+    app.include_router(logs.router, prefix="/api/v1/logs", tags=["Traffic Analytics"])
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
