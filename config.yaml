@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# AEROCIFER NGFW — Default Configuration
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Copy this file to 'config.yaml' in the project root and adjust as needed.
+# All values shown are the defaults used when no config file is present.
+#
+
+network:
+  interfaces:
+    - eth0                        # Network interface(s) to capture on
+  promiscuous: true               # Enable promiscuous mode
+  snap_length: 65535              # Max bytes captured per packet
+  capture_filter: "ip"            # BPF filter expression
+  batch_size: 64                  # Packets processed per batch
+  queue_max_size: 10000           # Max packets in processing queue
+  worker_count: 4                 # Async worker count
+  topology_scan_timeout: 30       # Seconds for initial ARP scan
+  topology_scan_network: ""       # Auto-detect if empty
+
+security:
+  ddos_threshold_pps: 100         # Packets-per-second DDoS threshold
+  ddos_window_seconds: 1.0        # DDoS measurement window
+  syn_flood_threshold: 50         # SYN packets/sec per IP
+  port_scan_threshold: 15         # Unique ports/10s per IP
+  arp_spoof_detection: true       # Enable ARP spoofing detection
+  auto_block: true                # Auto-block detected threats
+  block_duration_seconds: 3600    # Default block duration (1 hour)
+  whitelist_file: ""              # Path to IP whitelist file
+  blacklist_file: ""              # Path to IP blacklist file
+
+dpi:
+  enabled: true
+  inspect_http: true
+  inspect_https: true
+  inspect_dns: true
+  inspect_tls: true               # JA3/JA4 fingerprinting
+  inspect_smtp: false
+  inspect_mqtt: true              # IoT protocol
+  inspect_coap: true              # IoT protocol
+  max_payload_inspect_bytes: 4096
+  signature_rules_dir: ""         # Auto-detected if empty
+
+ml:
+  enabled: true
+  model_dir: ""                   # Auto-detected if empty
+  traffic_model_file: "traffic_model.pt"
+  traffic_confidence_threshold: 0.85
+  anomaly_model_file: "anomaly_model.pt"
+  anomaly_threshold: 0.95
+  device_model_file: "device_model.pkl"
+  self_training_enabled: true
+  training_buffer_size: 5000
+  retrain_interval_seconds: 3600
+  inference_batch_size: 32
+  use_onnx_runtime: false
+
+zones:
+  enabled: true
+  default_inter_zone_policy: "deny"
+  auto_classify_devices: true
+
+database:
+  engine: "sqlite"
+  path: ""                        # Auto-detected if empty
+  wal_mode: true                  # SQLite WAL for concurrent access
+  pool_size: 5
+  max_overflow: 10
+
+logging:
+  level: "INFO"                   # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_dir: ""                     # Auto-detected if empty
+  console_output: true
+  file_output: true
+  json_format: false              # Structured JSON for ELK/Splunk
+  max_file_size_mb: 50
+  backup_count: 5
+  log_packets: false              # Verbose packet logging (debug)
+
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8443
+  api_key: ""                     # Auto-generated if empty
+  cors_origins:
+    - "*"
+  rate_limit_per_minute: 60

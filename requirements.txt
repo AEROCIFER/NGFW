@@ -1,0 +1,25 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# AEROCIFER NGFW — Python Dependencies
+# ═══════════════════════════════════════════════════════════════════════════
+
+# --- Core ---
+scapy>=2.5.0                # Packet capture and dissection
+pyyaml>=6.0                 # Configuration file parsing
+aiosqlite>=0.19.0           # Async SQLite database
+netifaces>=0.11.0           # Network interface discovery
+psutil>=5.9.0               # System resource monitoring
+
+# --- ML / Neural Network (Phase 3) ---
+torch>=2.0.0                # PyTorch for neural networks
+numpy>=1.24.0               # Numerical computing
+scikit-learn>=1.3.0         # ML utilities and preprocessing
+lightgbm>=4.0.0             # Device fingerprinting model
+# onnxruntime>=1.16.0       # Optional: optimized inference
+
+# --- API (Phase 5) ---
+fastapi>=0.104.0            # REST API framework
+uvicorn>=0.24.0             # ASGI server
+python-multipart>=0.0.6     # Form data parsing
+
+# --- Utilities ---
+cryptography>=41.0.0        # TLS inspection, JA3 hashing
