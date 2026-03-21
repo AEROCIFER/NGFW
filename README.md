@@ -118,4 +118,4 @@ NGFW/
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
-**Build with ❤️ by the AEROCIFER Engineering Team.**
+**Build with ❤️ by AEROCIFER**
