@@ -323,7 +323,7 @@ class ZoneManager:
         src_name = self._zones[src_zone_id].name
         dst_name = self._zones[dst_zone_id].name
         log.info(
-            f"Inter-zone rule: {src_name} → {dst_name} = "
+            f"Inter-zone rule: {src_name} -> {dst_name} = "
             f"{action.value} ({protocol})"
         )
         return rule

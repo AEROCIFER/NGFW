@@ -20,7 +20,7 @@ from aerocifer.ml.device_classifier import DeviceZoneClassifier
 
 async def run_simulation():
     print("="*60)
-    print(" 🚀 AEROCIFER LIVE AI SIMULATION")
+    print(" AEROCIFER LIVE AI SIMULATION")
     print("="*60)
     
     # 1. Initialize ML components
@@ -54,14 +54,14 @@ async def run_simulation():
         # Train incrementally
         anomaly_detector.train_on_flow(flow)
         
-    print("[+] ✅ Normal Baseline Established.")
+    print("[+] [OK] Normal Baseline Established.")
     
     # 2. Test a normal flow against the now-trained model
     print("\n[+] Testing a new, fully NORMAL flow against the trained Autoencoder:")
     test_normal = normal_flows[0]
     is_anomaly, loss = anomaly_detector.predict(test_normal)
     print(f"   => Normal Flow Loss: {loss:.5f} (Threshold: {anomaly_detector.threshold})")
-    print(f"   => Is Anomaly? {'🚨 YES' if is_anomaly else '✅ NO (Expected)'}")
+    print(f"   => Is Anomaly? {'YES' if is_anomaly else 'NO (Expected)'}")
     
     # 3. Test an anomalous flow (simulate an attack/exfiltration)
     print("\n[+] Testing an ANOMALOUS flow (e.g. Data Exfiltration via UDP on strange port)...")
@@ -81,7 +81,7 @@ async def run_simulation():
     
     is_anomaly, loss = anomaly_detector.predict(weird_flow)
     print(f"   => Anomalous Flow Loss: {loss:.5f} (Threshold: {anomaly_detector.threshold})")
-    print(f"   => Is Anomaly? {'🚨 YES (It caught it!)' if is_anomaly else '❌ NO (Failed to catch)'}")
+    print(f"   => Is Anomaly? {'YES (It caught it!)' if is_anomaly else 'NO (Failed to catch)'}")
     
     # 4. Neural Device Classification Test
     print("\n[+] Grouping the flows to Classify the Device at 192.168.1.100...")

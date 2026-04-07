@@ -37,12 +37,33 @@ function App() {
   const [urlList, setUrlList] = useState<string[]>([]);
   const [trafficLogs, setTrafficLogs] = useState<any[]>([]);
 
+  // Log filter state (client-side)
+  const [logFilters, setLogFilters] = useState({
+    srcIp: '',
+    srcMac: '',
+    dstIp: '',
+    dstMac: '',
+    protocol: '',
+    service: '',
+  });
+
   // Modal States
   const [showIfaceModal, setShowIfaceModal] = useState(false);
   const [ifaceForm, setIfaceForm] = useState({ name: '', interface_type: 'Layer 3 Interfaces', ip_assignment: 'DHCP', ip_address: '', gateway: '' });
 
   const [showZoneModal, setShowZoneModal] = useState(false);
   const [zoneForm, setZoneForm] = useState({ name: '', protection_level: 'Standard', interface: '' });
+
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [ruleForm, setRuleForm] = useState({
+    action: 'drop',
+    direction: 'inbound',
+    src_ip: '',
+    dst_ip: '',
+    protocol: 'any',
+    description: '',
+    expires_in: '',
+  });
 
   useEffect(() => {
     // Live PyTorch Feed & NGFW Hook Check
@@ -173,6 +194,71 @@ function App() {
       await fetch(`http://localhost:8000/api/v1/network/zones/${id}`, { method: 'DELETE' });
     } catch(e) {}
   };
+
+  const submitCustomRule = async () => {
+    try {
+      const payload: any = {
+        action: ruleForm.action,
+        direction: ruleForm.direction,
+        src_ip: ruleForm.src_ip.trim(),
+        dst_ip: ruleForm.dst_ip.trim(),
+        protocol: ruleForm.protocol,
+        description: ruleForm.description || 'Custom rule via UI',
+      };
+
+      if (ruleForm.expires_in.trim() !== '') {
+        const seconds = parseInt(ruleForm.expires_in, 10);
+        if (!Number.isNaN(seconds) && seconds > 0) {
+          payload.expires_in = seconds;
+        }
+      }
+
+      const res = await fetch('http://localhost:8000/api/v1/security/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.rule) {
+        addTermLine(`[SUCCESS] Custom rule created (${data.rule.id}).`, 'success');
+        setShowRuleModal(false);
+        setRuleForm({
+          action: 'drop',
+          direction: 'inbound',
+          src_ip: '',
+          dst_ip: '',
+          protocol: 'any',
+          description: '',
+          expires_in: '',
+        });
+      } else {
+        addTermLine(`[FAILED] ${data.detail || data.message || 'Could not create rule.'}`, 'err');
+      }
+    } catch (e) {
+      addTermLine(`[NETWORK ERROR] Could not reach backend to create rule.`, 'err');
+    }
+  };
+
+  const filteredTrafficLogs = trafficLogs.filter((log) => {
+    const srcIp = (log?.src_ip ?? '').toString();
+    const dstIp = (log?.dst_ip ?? '').toString();
+    const protocol = (log?.protocol ?? '').toString();
+    const service = (log?.service ?? '').toString();
+    const srcMac = (log?.src_mac ?? '').toString();
+    const dstMac = (log?.dst_mac ?? '').toString();
+
+    const match = (field: string, needle: string) =>
+      needle.trim() === '' || field.toLowerCase().includes(needle.trim().toLowerCase());
+
+    return (
+      match(srcIp, logFilters.srcIp) &&
+      match(srcMac, logFilters.srcMac) &&
+      match(dstIp, logFilters.dstIp) &&
+      match(dstMac, logFilters.dstMac) &&
+      match(protocol, logFilters.protocol) &&
+      match(service, logFilters.service)
+    );
+  });
 
 
   useEffect(() => { termEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [termOutput]);
@@ -491,7 +577,7 @@ function App() {
              <div className="glass-card" style={{marginTop: '2rem'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                    <h3 style={{margin: 0}}>Active Enforcements</h3>
-                   <button style={{padding: '0.5rem 1rem', background: 'hsl(var(--brand-purple))', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold'}}>+ Create Custom Rule</button>
+                   <button onClick={() => setShowRuleModal(true)} style={{padding: '0.5rem 1rem', background: 'hsl(var(--brand-purple))', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold'}}>+ Create Custom Rule</button>
                 </div>
                 <table style={{width: '100%', textAlign: 'left', borderCollapse: 'collapse', marginTop: '1rem'}}>
                   <thead>
@@ -529,6 +615,35 @@ function App() {
                   </tbody>
                 </table>
              </div>
+
+             {/* CUSTOM RULE MODAL */}
+             {showRuleModal && (
+               <ModalBackground onClose={() => setShowRuleModal(false)}>
+                 <h3 style={{marginBottom: '1rem'}}>Create Custom Rule</h3>
+                 <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                   <select value={ruleForm.action} onChange={e => setRuleForm({...ruleForm, action: e.target.value})} style={{padding: '0.8rem', background: 'hsla(0,0%,0%,0.3)', border: '1px solid hsla(0,0%,100%,0.1)', color: '#fff', borderRadius: '4px'}}>
+                     <option value="drop">DROP (Block)</option>
+                     <option value="accept">ACCEPT (Allow)</option>
+                     <option value="reject">REJECT</option>
+                     <option value="log">LOG</option>
+                   </select>
+                   <select value={ruleForm.direction} onChange={e => setRuleForm({...ruleForm, direction: e.target.value})} style={{padding: '0.8rem', background: 'hsla(0,0%,0%,0.3)', border: '1px solid hsla(0,0%,100%,0.1)', color: '#fff', borderRadius: '4px'}}>
+                     <option value="inbound">inbound</option>
+                     <option value="outbound">outbound</option>
+                     <option value="forward">forward</option>
+                   </select>
+                   <input type="text" placeholder="Source IP (optional)" value={ruleForm.src_ip} onChange={e => setRuleForm({...ruleForm, src_ip: e.target.value})} style={{padding: '0.8rem', background: 'hsla(0,0%,0%,0.3)', border: '1px solid hsla(0,0%,100%,0.1)', color: '#fff', borderRadius: '4px'}} />
+                   <input type="text" placeholder="Destination IP (optional)" value={ruleForm.dst_ip} onChange={e => setRuleForm({...ruleForm, dst_ip: e.target.value})} style={{padding: '0.8rem', background: 'hsla(0,0%,0%,0.3)', border: '1px solid hsla(0,0%,100%,0.1)', color: '#fff', borderRadius: '4px'}} />
+                   <input type="text" placeholder="Protocol (any/tcp/udp/icmp)" value={ruleForm.protocol} onChange={e => setRuleForm({...ruleForm, protocol: e.target.value})} style={{padding: '0.8rem', background: 'hsla(0,0%,0%,0.3)', border: '1px solid hsla(0,0%,100%,0.1)', color: '#fff', borderRadius: '4px'}} />
+                   <input type="text" placeholder="Expires in seconds (optional)" value={ruleForm.expires_in} onChange={e => setRuleForm({...ruleForm, expires_in: e.target.value})} style={{padding: '0.8rem', background: 'hsla(0,0%,0%,0.3)', border: '1px solid hsla(0,0%,100%,0.1)', color: '#fff', borderRadius: '4px'}} />
+                   <input type="text" placeholder="Description" value={ruleForm.description} onChange={e => setRuleForm({...ruleForm, description: e.target.value})} style={{padding: '0.8rem', background: 'hsla(0,0%,0%,0.3)', border: '1px solid hsla(0,0%,100%,0.1)', color: '#fff', borderRadius: '4px'}} />
+
+                   <button onClick={submitCustomRule} style={{padding: '1rem', background: 'hsl(var(--brand-purple))', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '1rem'}}>
+                     Create Rule
+                   </button>
+                 </div>
+               </ModalBackground>
+             )}
           </div>
         )}
 
@@ -573,17 +688,17 @@ function App() {
              
              <div className="glass-card" style={{marginTop: '2rem'}}>
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem'}}>
-                   <input type="text" placeholder="Source IP" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
-                   <input type="text" placeholder="Source MAC/Address" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
-                   <input type="text" placeholder="Destination IP" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
-                   <input type="text" placeholder="Destination MAC/Address" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
-                   <input type="text" placeholder="Protocol (TCP/UDP/ICMP)" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
-                   <input type="text" placeholder="Service / App-ID / Policy" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
+                   <input value={logFilters.srcIp} onChange={e => setLogFilters({...logFilters, srcIp: e.target.value})} type="text" placeholder="Source IP" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
+                   <input value={logFilters.srcMac} onChange={e => setLogFilters({...logFilters, srcMac: e.target.value})} type="text" placeholder="Source MAC/Address" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
+                   <input value={logFilters.dstIp} onChange={e => setLogFilters({...logFilters, dstIp: e.target.value})} type="text" placeholder="Destination IP" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
+                   <input value={logFilters.dstMac} onChange={e => setLogFilters({...logFilters, dstMac: e.target.value})} type="text" placeholder="Destination MAC/Address" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
+                   <input value={logFilters.protocol} onChange={e => setLogFilters({...logFilters, protocol: e.target.value})} type="text" placeholder="Protocol (TCP/UDP/ICMP)" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
+                   <input value={logFilters.service} onChange={e => setLogFilters({...logFilters, service: e.target.value})} type="text" placeholder="Service / App-ID / Policy" style={{padding: '0.8rem', background: 'hsla(0,0%,100%,0.05)', border: '1px solid hsla(0,0%,100%,0.1)', borderRadius: '4px', color: '#fff'}} />
                 </div>
                 <div style={{minHeight: '300px', background: 'hsla(0,0%,100%,0.02)', borderRadius: '8px', padding: '1rem', border: '1px solid hsla(0,0%,100%,0.05)', marginTop: '1rem', overflowY: 'auto', maxHeight: '500px'}}>
-                  {trafficLogs.length === 0 ? (
+                  {filteredTrafficLogs.length === 0 ? (
                     <div style={{color: 'hsl(var(--text-muted))', textAlign: 'center', marginTop: '4rem'}}>
-                      Gathering Packets... Standby.
+                      {trafficLogs.length === 0 ? 'Gathering Packets... Standby.' : 'No logs match the current filters.'}
                     </div>
                   ) : (
                     <table style={{width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.9rem'}}>
@@ -597,7 +712,7 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {trafficLogs.map((log, idx) => (
+                        {filteredTrafficLogs.map((log, idx) => (
                           <tr key={idx} style={{borderBottom: '1px solid hsla(0,0%,100%,0.05)'}}>
                             <td style={{padding: '0.8rem 0', fontFamily: 'monospace'}}>{new Date(log.timestamp * 1000).toLocaleTimeString()}</td>
                             <td style={{fontWeight: 'bold', color: 'hsl(var(--text-main))'}}>{log.src_ip}</td>

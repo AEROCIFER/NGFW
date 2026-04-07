@@ -1,12 +1,13 @@
 """
 AEROCIFER NGFW — AI Engine Package
 
-- NLPCommandEngine: Parses natural language prompts to perform automatic configuration.
+- GemmaConfigEngine: Uses Ollama + Gemma 4 for AI configuration.
 """
 
-from aerocifer.ai.nlp_engine import NLPCommandEngine, NLPCommandResult
+from aerocifer.ai.gemma_engine import GemmaConfigEngine
+from aerocifer.ai.nlp_engine import NLPCommandResult
 
 __all__ = [
-    "NLPCommandEngine",
+    "GemmaConfigEngine",
     "NLPCommandResult",
 ]

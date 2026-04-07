@@ -43,7 +43,7 @@ def test_config_defaults():
     assert config.database.engine == "sqlite"
     assert config.logging.level == "INFO"
     assert config.api.port == 8443
-    print("✅ test_config_defaults PASSED")
+    print("[OK] test_config_defaults PASSED")
 
 
 def test_config_load_from_yaml():
@@ -64,7 +64,7 @@ def test_config_load_from_yaml():
         loaded = load_config(path)
         assert loaded.network.batch_size == 128
         assert loaded.security.ddos_threshold_pps == 200
-        print("✅ test_config_load_from_yaml PASSED")
+        print("[OK] test_config_load_from_yaml PASSED")
     finally:
         os.unlink(path)
 
@@ -137,7 +137,7 @@ def test_validators():
     assert is_private_ip("192.168.1.1") is True
     assert is_private_ip("8.8.8.8") is False
 
-    print("✅ test_validators PASSED")
+    print("[OK] test_validators PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -227,7 +227,7 @@ def test_database():
             assert counts["threats"] == 1
 
             await db.close()
-            print("✅ test_database PASSED")
+            print("[OK] test_database PASSED")
         finally:
             os.unlink(db_path)
 
@@ -305,7 +305,7 @@ def test_session_tracker():
     assert features["dst_port"] == 80.0
     assert len(features) > 40  # Should have 40+ features
 
-    print("✅ test_session_tracker PASSED")
+    print("[OK] test_session_tracker PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -358,7 +358,7 @@ def test_rule_cache():
         await cache.remove_rule(rule.id)
         assert cache.is_blocked("10.0.0.5") is False
 
-        print("✅ test_rule_cache PASSED")
+        print("[OK] test_rule_cache PASSED")
 
     run_async(_test())
 
@@ -439,7 +439,7 @@ def test_zone_manager():
         assert result is True
         assert zm.zone_count == 1
 
-        print("✅ test_zone_manager PASSED")
+        print("[OK] test_zone_manager PASSED")
 
     run_async(_test())
 
@@ -484,7 +484,7 @@ def test_model_serialization():
     restored = Threat.from_dict(d)
     assert restored.threat_type == ThreatType.DDOS
 
-    print("✅ test_model_serialization PASSED")
+    print("[OK] test_model_serialization PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -508,7 +508,7 @@ def test_logger():
     log3 = get_logger("ml")
     log3.info("ML engine initialized")
 
-    print("✅ test_logger PASSED")
+    print("[OK] test_logger PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -541,7 +541,7 @@ if __name__ == "__main__":
             test_func()
             passed += 1
         except Exception as e:
-            print(f"❌ {name} FAILED: {e}")
+            print(f"[FAIL] {name} FAILED: {e}")
             import traceback
             traceback.print_exc()
             failed += 1

@@ -60,7 +60,7 @@ def test_http_sql_injection():
         matched = any(p.search(payload) for p in _SQL_INJECTION_PATTERNS)
         assert not matched, f"False positive on safe payload: {payload}"
 
-    print("✅ test_http_sql_injection PASSED")
+    print("[OK] test_http_sql_injection PASSED")
 
 
 def test_http_xss():
@@ -81,7 +81,7 @@ def test_http_xss():
         matched = any(p.search(payload) for p in _XSS_PATTERNS)
         assert matched, f"Failed to detect XSS: {payload}"
 
-    print("✅ test_http_xss PASSED")
+    print("[OK] test_http_xss PASSED")
 
 
 def test_http_path_traversal():
@@ -99,7 +99,7 @@ def test_http_path_traversal():
         matched = any(p.search(payload) for p in _PATH_TRAVERSAL_PATTERNS)
         assert matched, f"Failed to detect traversal: {payload}"
 
-    print("✅ test_http_path_traversal PASSED")
+    print("[OK] test_http_path_traversal PASSED")
 
 
 def test_http_command_injection():
@@ -118,7 +118,7 @@ def test_http_command_injection():
         matched = any(p.search(payload) for p in _CMD_INJECTION_PATTERNS)
         assert matched, f"Failed to detect cmd injection: {payload}"
 
-    print("✅ test_http_command_injection PASSED")
+    print("[OK] test_http_command_injection PASSED")
 
 
 def test_http_parser():
@@ -157,7 +157,7 @@ def test_http_parser():
     assert http2.content_length == 25
     assert "username=admin" in http2.body
 
-    print("✅ test_http_parser PASSED")
+    print("[OK] test_http_parser PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -182,7 +182,7 @@ def test_dns_entropy():
     # Empty
     assert _shannon_entropy("") == 0.0
 
-    print("✅ test_dns_entropy PASSED")
+    print("[OK] test_dns_entropy PASSED")
 
 
 def test_dns_dga_detection():
@@ -215,7 +215,7 @@ def test_dns_dga_detection():
         is_dga, confidence = _is_dga_domain(domain)
         assert not is_dga, f"False positive DGA on: {domain} (conf={confidence})"
 
-    print("✅ test_dns_dga_detection PASSED")
+    print("[OK] test_dns_dga_detection PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -250,7 +250,7 @@ def test_tls_ja3_parser():
     assert len(parts) == 5
     assert parts[0] == "771"  # 0x0303
 
-    print("✅ test_tls_ja3_parser PASSED")
+    print("[OK] test_tls_ja3_parser PASSED")
 
 
 def test_tls_cipher_classification():
@@ -270,7 +270,7 @@ def test_tls_cipher_classification():
     assert 0x1301 not in WEAK_CIPHERS
     assert 0x1301 not in EXPORT_CIPHERS
 
-    print("✅ test_tls_cipher_classification PASSED")
+    print("[OK] test_tls_cipher_classification PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -325,7 +325,7 @@ def test_mqtt_parser():
     assert mqtt2.topic == "home/sensor/temp"
     assert mqtt2.payload == payload_data
 
-    print("✅ test_mqtt_parser PASSED")
+    print("[OK] test_mqtt_parser PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -375,7 +375,7 @@ def test_signature_engine():
     # Re-enable
     assert engine.enable_rule(1000001) is True
 
-    print("✅ test_signature_engine PASSED")
+    print("[OK] test_signature_engine PASSED")
 
 
 def test_signature_rule_parser():
@@ -405,7 +405,7 @@ alert udp any any -> any 53 (msg:"DNS Test"; content:"malware.evil"; sid:9003; p
         stats = engine.get_stats()
         assert stats["total_rules"] == 3
 
-        print("✅ test_signature_rule_parser PASSED")
+        print("[OK] test_signature_rule_parser PASSED")
     finally:
         os.unlink(rules_path)
 
@@ -476,7 +476,7 @@ def test_protocol_inspector_routing():
     assert "dns" in names
     assert "layer3" in names
 
-    print("✅ test_protocol_inspector_routing PASSED")
+    print("[OK] test_protocol_inspector_routing PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -504,7 +504,7 @@ def test_arp_binding_table():
 
     assert table.entry_count == 1
 
-    print("✅ test_arp_binding_table PASSED")
+    print("[OK] test_arp_binding_table PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -527,7 +527,7 @@ def test_bogon_detection():
     assert is_bogon("1.1.1.1") is False
     assert is_bogon("203.0.114.1") is False
 
-    print("✅ test_bogon_detection PASSED")
+    print("[OK] test_bogon_detection PASSED")
 
 
 def test_fragment_tracker():
@@ -549,7 +549,7 @@ def test_fragment_tracker():
     assert result is not None
     assert "Tiny fragment" in result
 
-    print("✅ test_fragment_tracker PASSED")
+    print("[OK] test_fragment_tracker PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -575,7 +575,7 @@ def test_syn_flood_tracker():
     # Different source — not affect
     assert tracker.record_syn("192.168.1.200") is False
 
-    print("✅ test_syn_flood_tracker PASSED")
+    print("[OK] test_syn_flood_tracker PASSED")
 
 
 def test_port_scan_detector():
@@ -594,7 +594,7 @@ def test_port_scan_detector():
     assert result is not None
     assert "scan" in result
 
-    print("✅ test_port_scan_detector PASSED")
+    print("[OK] test_port_scan_detector PASSED")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -636,7 +636,7 @@ if __name__ == "__main__":
             test_func()
             passed += 1
         except Exception as e:
-            print(f"❌ {name} FAILED: {e}")
+            print(f"[FAIL] {name} FAILED: {e}")
             import traceback
             traceback.print_exc()
             failed += 1

@@ -57,7 +57,22 @@ def detect_backend() -> FirewallBackend:
 
     if system == "windows":
         if shutil.which("netsh"):
-            return FirewallBackend.WINDOWS
+            # Windows firewall rule changes require elevation.
+            # If not elevated, use simulation to avoid repeated rc=1 failures.
+            try:
+                import ctypes
+                is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+            except Exception:
+                is_admin = False
+
+            if is_admin:
+                return FirewallBackend.WINDOWS
+
+            log.warning(
+                "Windows detected but process is not elevated; using simulation backend. "
+                "Run as Administrator to apply Windows Firewall rules."
+            )
+            return FirewallBackend.SIMULATION
         return FirewallBackend.SIMULATION
 
     log.warning(f"Unsupported platform: {system}. Using simulation mode.")
@@ -484,10 +499,21 @@ class RuleEngine:
                 "-s", ip, "-j", "DROP",
             ])
         elif self._backend == FirewallBackend.WINDOWS:
+            # `netsh ... add rule` fails (rc=1) if a rule with the same name exists.
+            # We delete first (ignore errors) to make block operations idempotent.
+            rule_name = f"AEROCIFER_BLOCK_{ip}"
+            await self._run_command(
+                ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_name}"],
+                ignore_errors=True,
+            )
             await self._run_command([
                 "netsh", "advfirewall", "firewall", "add", "rule",
-                f"name=AEROCIFER_BLOCK_{ip}",
-                "dir=in", "action=block", f"remoteip={ip}",
+                f"name={rule_name}",
+                "dir=in",
+                "action=block",
+                f"remoteip={ip}",
+                "profile=any",
+                "enable=yes",
             ])
         else:
             log.info(f"[SIMULATION] Would block IP: {ip}")
@@ -555,6 +581,7 @@ class RuleEngine:
             if rc != 0 and not ignore_errors:
                 log.error(
                     f"Command failed (rc={rc}): {' '.join(cmd)}\n"
+                    f"  stdout: {stdout_str}\n"
                     f"  stderr: {stderr_str}"
                 )
 

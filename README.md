@@ -5,7 +5,7 @@
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react) 
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?style=flat-square&logo=pytorch)
 
-AEROCIFER is a high-performance, enterprise-grade Next-Generation Firewall built with a **Single-Pass Parallel Processing (SP3) Architecture**. It leverages Machine Learning (PyTorch) for real-time anomaly detection and features a zero-touch AI Configuration Engine powered by Natural Language Processing.
+AEROCIFER is a high-performance, enterprise-grade Next-Generation Firewall built with a **Single-Pass Parallel Processing (SP3) Architecture**. It leverages Machine Learning (PyTorch) for real-time anomaly detection and features a zero-touch AI Configuration Engine powered by **Gemma 4 (via Ollama)**.
 
 ---
 
@@ -20,7 +20,7 @@ AEROCIFER is a high-performance, enterprise-grade Next-Generation Firewall built
 
 ### 🧠 AI & Machine Learning
 - **Anomaly Detection**: PyTorch-driven autoencoders detect sub-millisecond network deviations and zero-day threats.
-- **AI Config Engine**: Control your entire firewall using natural language prompts.
+- **AI Config Engine (Gemma 4)**: Control your entire firewall using natural language prompts (zones + rules + URL filtering).
 - **Device Fingerprinting**: Automatically classifies connected devices (IoT, Workstation, Server) using traffic profiles.
 
 ### 📊 Advanced Management
@@ -48,6 +48,7 @@ AEROCIFER is a high-performance, enterprise-grade Next-Generation Firewall built
 - Python 3.10 or higher
 - Node.js & npm (for the frontend)
 - Npcap (Windows) or libpcap (Linux) for packet capturing
+- Ollama (for Gemma 4 local inference)
 
 ### 2. Clone & Setup
 ```bash
@@ -56,6 +57,14 @@ cd NGFW
 
 # Setup Python environment
 pip install -r requirements.txt
+```
+
+### 2b. Ollama + Gemma 4
+Install and start Ollama, then pull a Gemma 4 model:
+
+```bash
+ollama pull gemma4:latest
+ollama list
 ```
 
 ### 3. Frontend Setup
@@ -76,6 +85,9 @@ python -m aerocifer --simulation
 ```
 *Note: The `--simulation` flag generates mock traffic and runs in a non-disruptive mode for testing.*
 
+#### Windows note (firewall rules)
+Applying Windows Firewall (`netsh`) rules requires an **elevated / Administrator** process. If you run non-elevated, the rule engine will fall back to simulation mode.
+
 ### 2. Starting the Dashboard
 ```bash
 # In the /frontend directory
@@ -87,12 +99,37 @@ The dashboard will be available at [http://localhost:5173](http://localhost:5173
 
 ## 💬 AI Config Engine: Example Commands
 
-AEROCIFER features a zero-touch NLP engine. Open the **AI Config Engine** tab and try:
+AEROCIFER features a Gemma 4-powered AI engine (Ollama). Open the **AI Config Engine** tab and try:
 - `"Create a zone named DMZ and restrict it to Layer 7 protocols"`
 - `"Block traffic from 192.168.1.105"`
 - `"Block URL malicious-site.ru"`
 - `"Setup a new interface WAN as layer 3"`
 - `"Assign device 10.0.0.5 to zone IoT"`
+
+## ✅ Testing
+
+Run backend + unit test suites:
+
+```bash
+python tests/test_foundation.py
+python tests/test_dpi.py
+python tests/test_ml_ai.py
+python tests/simulate_ai_traffic.py
+```
+
+Verify Ollama/Gemma is reachable:
+
+```bash
+python scripts/ollama_smoke_test.py
+```
+
+## 🔌 Useful API endpoints
+- `GET /api/v1/status/` — overall status
+- `POST /api/v1/ai/prompt` — Gemma 4 AI config
+- `GET /api/v1/network/zones` — list zones
+- `POST /api/v1/security/rules` — create custom rule
+- `GET /api/v1/security/rules` — list rules
+- `GET /api/v1/logs/traffic` — recent traffic logs
 
 ---
 

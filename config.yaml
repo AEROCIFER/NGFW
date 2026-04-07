@@ -55,6 +55,14 @@ ml:
   inference_batch_size: 32
   use_onnx_runtime: false
 
+gemma:
+  enabled: true
+  model_name: "gemma4:latest"     # Ollama tag (e.g., gemma4:latest | gemma4:e4b | gemma4:26b)
+  ollama_host: "http://localhost:11434"
+  temperature: 0.1                # Low for deterministic firewall ops
+  max_tokens: 1024
+  fallback_to_regex: false        # NLP engine is replaced; no regex fallback
+
 zones:
   enabled: true
   default_inter_zone_policy: "deny"

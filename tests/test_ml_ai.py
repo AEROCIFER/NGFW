@@ -4,7 +4,7 @@ Tests for AEROCIFER NGFW — Sprint 3: ML Integration & AI Features
 Validates:
 - FlowFeatureExtractor converts raw flows into neural-network ready numpy arrays.
 - PyTorch Autoencoder does not crash and computes MSE.
-- NLP Engine properly parses human prompts into Zone and Rule actions.
+- Gemma 4 engine dispatches actions from structured JSON (without regex NLP).
 """
 
 import asyncio
@@ -53,7 +53,7 @@ def test_feature_extractor():
     assert np.all(vec >= 0.0)
     assert np.all(vec <= 1.0)
     
-    print("✅ test_feature_extractor PASSED")
+    print("[OK] test_feature_extractor PASSED")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PyTorch Autoencoder Tests
@@ -79,7 +79,7 @@ def test_pytorch_autoencoder():
     assert torch.all(reconstructed >= 0.0)
     assert torch.all(reconstructed <= 1.0)
     
-    print("✅ test_pytorch_autoencoder PASSED")
+    print("[OK] test_pytorch_autoencoder PASSED")
 
 def test_pytorch_classifier():
     from aerocifer.ml.models_pytorch import DeviceClassifierNN
@@ -95,7 +95,7 @@ def test_pytorch_classifier():
         
     assert logits.shape == (4, 5)
     
-    print("✅ test_pytorch_classifier PASSED")
+    print("[OK] test_pytorch_classifier PASSED")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # AI NLP Engine Tests
@@ -109,50 +109,46 @@ class MockZoneManager:
     def __init__(self):
         self._zones = {}
         
-    def create_zone(self, name, description):
+    async def create_zone(self, name, description):
         zone_id = f"mock_id_{name}"
         class MockZone:
             pass
         mz = MockZone()
+        mz.id = zone_id
         mz.name = name
         self._zones[zone_id] = mz
-        return zone_id
+        return mz
         
-    def assign_device(self, ip, zone_id):
+    async def assign_device(self, ip, zone_id):
         pass
 
 def test_ai_nlp_parser():
-    from aerocifer.ai.nlp_engine import NLPCommandEngine
+    from aerocifer.ai.gemma_engine import GemmaConfigEngine
     
     zm = MockZoneManager()
     re_mock = MockRuleEngine()
     
-    ai = NLPCommandEngine(zone_manager=zm, rule_engine=re_mock)
+    ai = GemmaConfigEngine(zone_manager=zm, rule_engine=re_mock)
     
     async def run_tests():
-        # Test 1: Create Zone
-        res = await ai.execute_prompt("Hey, AI, create a zone for IoT")
+        # We don't require a live Ollama server in unit tests.
+        # Instead, validate that Gemma engine can execute structured actions.
+        parsed = {
+            "actions": [
+                {"type": "create_zone", "params": {"name": "iot", "description": "AI-Generated IoT Network"}},
+                {"type": "block_ip", "params": {"ip": "192.168.1.100", "duration": 3600, "reason": "test"}},
+            ],
+            "explanation": "Created zone and blocked IP.",
+        }
+
+        res = await ai._execute_actions(parsed)
         assert res.success
-        assert res.details.get("zone") == "iot"
-        
-        # Test 2: Double command
-        res = await ai.execute_prompt("create network for basic_devices and add device 10.0.0.5 to basic_devices")
-        assert res.success
-        assert "basic_devices" in zm._zones[f"mock_id_basic_devices"].name
-        
-        # Test 3: Block command
-        res = await ai.execute_prompt("Please block traffic from 192.168.1.100 immediately")
-        assert res.success
-        assert res.action_taken == "block_ip"
-        assert res.details.get("ip") == "192.168.1.100"
-        
-        # Test 4: Unknown
-        res = await ai.execute_prompt("Tell me the weather")
-        assert not res.success
+        assert res.action_taken == "multiple"
+        assert "mock_id_iot" in zm._zones
         
     run_async(run_tests())
     
-    print("✅ test_ai_nlp_parser PASSED")
+    print("[OK] test_ai_nlp_parser PASSED")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Execute
@@ -176,7 +172,7 @@ if __name__ == "__main__":
             t()
             passed += 1
         except Exception as e:
-            print(f"❌ {name} FAILED: {e}")
+            print(f"[FAIL] {name} FAILED: {e}")
             import traceback
             traceback.print_exc()
             failed += 1

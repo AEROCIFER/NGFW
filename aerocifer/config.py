@@ -51,7 +51,7 @@ class NetworkConfig:
 @dataclass
 class SecurityConfig:
     """Threat detection thresholds and policies."""
-    ddos_threshold_pps: int = 100     # Packets-per-second before DDoS flag
+    ddos_threshold_pps: int = 100      # Packets-per-second before DDoS flag
     ddos_window_seconds: float = 1.0  # Measurement window
     syn_flood_threshold: int = 50     # SYN packets / second from single IP
     port_scan_threshold: int = 15     # Unique ports / 10s from single IP
@@ -97,6 +97,17 @@ class MLConfig:
     # Performance
     inference_batch_size: int = 32
     use_onnx_runtime: bool = False    # ONNX for optimized inference
+
+
+@dataclass
+class GemmaConfig:
+    """Gemma 4 LLM configuration for AI engine."""
+    enabled: bool = True
+    model_name: str = "gemma4:latest"  # Ollama tag (e.g., gemma4:latest | gemma4:e4b | gemma4:26b)
+    ollama_host: str = "http://localhost:11434"
+    temperature: float = 0.1          # Low for deterministic firewall ops
+    max_tokens: int = 1024
+    fallback_to_regex: bool = True    # Use regex NLP when Ollama is offline
 
 
 @dataclass
@@ -155,6 +166,7 @@ class AerociferConfig:
     security: SecurityConfig = field(default_factory=SecurityConfig)
     dpi: DPIConfig = field(default_factory=DPIConfig)
     ml: MLConfig = field(default_factory=MLConfig)
+    gemma: GemmaConfig = field(default_factory=GemmaConfig)
     zones: ZoneConfig = field(default_factory=ZoneConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
@@ -196,6 +208,7 @@ def _dict_to_config(data: dict) -> AerociferConfig:
         "security": (cfg.security, SecurityConfig),
         "dpi": (cfg.dpi, DPIConfig),
         "ml": (cfg.ml, MLConfig),
+        "gemma": (cfg.gemma, GemmaConfig),
         "zones": (cfg.zones, ZoneConfig),
         "database": (cfg.database, DatabaseConfig),
         "logging": (cfg.logging, LoggingConfig),
